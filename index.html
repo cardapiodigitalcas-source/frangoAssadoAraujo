@@ -1,138 +1,317 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cardápio Online</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/node-vibrant/3.1.6/vibrant.min.js"></script>
-    
+
+    <title>Frango Assado Araujo</title>
+
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-512.png">
+
+    <meta name="theme-color" content="#e31b1b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+
+    <!-- CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
 
-<link rel="manifest" href="manifest.json">
 
-<meta name="theme-color" content="#e31b1b">
+    <!-- Vibrant -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/node-vibrant/3.1.6/vibrant.min.js"></script>
 
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 </head>
+
+
 <body>
 
+
+
+    <!-- HEADER -->
     <header class="header">
+
         <div id="header-bg"></div>
+
         <img id="logo" class="logo" alt="Logo da Loja" crossorigin="anonymous">
+
         <h1 id="store-name">Carregando...</h1>
+
         <div id="loja-status-msg" class="status-loja"></div>
+
     </header>
 
-    <main id="products" class="products">
-        </main>
 
+
+
+    <!-- PRODUTOS -->
+    <main id="products" class="products"></main>
+
+
+
+
+    <!-- BOTÃO CARRINHO -->
     <button class="cart-float" onclick="Cart.toggle()">
-        🛒 Ver Carrinho  
+
+        🛒 Ver Carrinho
+
         <span id="cart-total-float">R$ 0,00</span>
+
     </button>
 
+
+
+
+
+    <!-- MODAL CARRINHO -->
     <div id="cart-modal" class="cart-modal hidden">
+
         <div class="cart-box">
+
             <h2>Seu Pedido</h2>
-            <button onclick="Cart.clear()" class="btn-clear-cart" 
+
+            <button onclick="Cart.clear()" class="btn-clear-cart"
                 style="width: 100%; margin-bottom: 15px; padding: 8px; background: #fff1f1; color: #d9534f; border: 1px solid #d9534f; border-radius: 8px; cursor: pointer; font-weight: bold;">
+
                 🗑️ Limpar Carrinho
+
             </button>
+
+
             <div id="cart-items"></div>
+
+
             <div class="cart-total">
+
                 Total: <span id="cart-total"><strong>R$ 0,00</strong></span>
+
             </div>
+
+
             <button id="btn-finalizar-cart" onclick="Cart.checkout()" class="btn-primary">
+
                 Finalizar Pedido
+
             </button>
+
+
             <button onclick="Cart.toggle()" class="btn-secondary">
+
                 Fechar
+
             </button>
+
+
         </div>
+
     </div>
 
+
+
+
+
+    <!-- MODAL CHECKOUT -->
     <div id="checkout-modal" class="checkout-modal hidden">
+
         <div class="checkout-box">
+
             <h2 id="saudacao-usuario">Finalizar Pedido</h2>
-            
+
+
+
             <div class="form-group">
+
                 <label>Seu Nome</label>
+
                 <input id="cliente-nome" placeholder="Ex: João Silva" oninput="atualizarSaudacao()">
+
             </div>
+
+
+
 
             <div class="form-group" style="position: relative;">
+
                 <label>Seu Bairro</label>
-                <input type="text" id="cliente-bairro" placeholder="Digite seu bairro..." autocomplete="off" oninput="Cart.sugerirBairros(this.value)">
+
+                <input type="text" id="cliente-bairro"
+                    placeholder="Digite seu bairro..."
+                    autocomplete="off"
+                    oninput="Cart.sugerirBairros(this.value)">
+
                 <div id="lista-sugestoes" class="sugestoes-box hidden"></div>
-                <small id="taxa-status" style="margin-top: 5px; display: block; font-size: 0.8rem; color: #666;"></small>
+
+                <small id="taxa-status"
+                    style="margin-top: 5px; display: block; font-size: 0.8rem; color: #666;">
+                </small>
+
             </div>
 
+
+
+
             <div class="form-group">
+
                 <label>Endereço Completo</label>
-                <input id="cliente-endereco" placeholder="Rua, número e ponto de referência">
+
+                <input id="cliente-endereco"
+                    placeholder="Rua, número e ponto de referência">
+
             </div>
 
+
+
+
             <div class="form-group">
+
                 <label>Forma de Pagamento</label>
+
                 <select id="pagamento" onchange="Cart.ajustarPagamento(this.value)">
+
                     <option value="">Escolha como pagar</option>
+
                     <option value="Pix">Pix</option>
+
                     <option value="Cartão">Cartão (levar maquininha)</option>
+
                     <option value="Dinheiro">Dinheiro</option>
+
                 </select>
+
             </div>
 
-            <div id="area-pix" class="hidden" style="background: #e7f3ef; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #c3e6cb;">
-                <p style="font-size: 0.9rem; color: #0d5a44; margin: 0;"><strong>Chave Pix:</strong> <span id="chave-pix-valor">000.000.000-00</span></p>
-                <p style="font-size: 0.8rem; color: #0d5a44; margin: 5px 0;">Favorecido: <strong id="favorecido-pix">Nome da Sua Loja</strong></p>
-                <button type="button" onclick="Cart.copiarPix()" style="background: #25d366; color: white; border: none; padding: 6px 12px; border-radius: 5px; margin-top: 5px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">
+
+
+
+            <!-- PIX -->
+            <div id="area-pix" class="hidden"
+                style="background: #e7f3ef; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #c3e6cb;">
+
+                <p style="font-size: 0.9rem; color: #0d5a44; margin: 0;">
+
+                    <strong>Chave Pix:</strong>
+                    <span id="chave-pix-valor">000.000.000-00</span>
+
+                </p>
+
+
+                <p style="font-size: 0.8rem; color: #0d5a44; margin: 5px 0;">
+
+                    Favorecido:
+                    <strong id="favorecido-pix">Frango Assado Araujo</strong>
+
+                </p>
+
+
+                <button type="button"
+                    onclick="Cart.copiarPix()"
+                    style="background: #25d366; color: white; border: none; padding: 6px 12px; border-radius: 5px; margin-top: 5px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">
+
                     📋 Copiar Chave
+
                 </button>
+
             </div>
 
-            <div id="area-troco" class="hidden" style="background: #fdf6e7; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #ffeeba;">
-                <label style="font-size: 0.9rem; font-weight: bold; color: #856404;">Precisa de troco?</label>
-                <input type="text" id="valor-troco" placeholder="Troco para quanto? (Ex: 50)" style="margin-top: 10px; border: 1px solid #dec069; width: 100%; padding: 8px; border-radius: 5px;">
+
+
+
+
+            <!-- TROCO -->
+            <div id="area-troco" class="hidden"
+                style="background: #fdf6e7; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #ffeeba;">
+
+                <label style="font-size: 0.9rem; font-weight: bold; color: #856404;">
+
+                    Precisa de troco?
+
+                </label>
+
+                <input type="text"
+                    id="valor-troco"
+                    placeholder="Troco para quanto? (Ex: 50)"
+                    style="margin-top: 10px; border: 1px solid #dec069; width: 100%; padding: 8px; border-radius: 5px;">
+
             </div>
+
+
+
 
             <div class="form-group">
-                <label>Observações (Opcional)</label>
-                <textarea id="cliente-obs" placeholder="Ex: Sem cebola, remover talheres..."></textarea>
+
+                <label>Observações</label>
+
+                <textarea id="cliente-obs"
+                    placeholder="Ex: Sem cebola, remover talheres..."></textarea>
+
             </div>
 
 
-            <button id="btn-enviar-whatsapp" onclick="Cart.enviarPedido()" class="btn-primary">
+
+
+            <button id="btn-enviar-whatsapp"
+                onclick="Cart.enviarPedido()"
+                class="btn-primary">
+
                 🚀 Enviar Pedido para o WhatsApp
+
             </button>
-            
-            <button type="button" onclick="Cart.closeCheckout()" class="btn-secondary">
-    Voltar
-</button>
+
+
+
+
+            <button onclick="Cart.closeCheckout()" class="btn-secondary">
+
+                Voltar
+
+            </button>
+
+
         </div>
+
     </div>
 
+
+
+
+
+    <!-- SCRIPTS -->
     <script src="js/api.js"></script>
     <script src="js/cart.js"></script>
     <script src="js/main.js"></script>
 
-<script>
 
-if ("serviceWorker" in navigator) {
 
-    window.addEventListener("load", () => {
 
-        navigator.serviceWorker.register("./sw.js")
+    <!-- SERVICE WORKER -->
+    <script>
 
-    });
+        if ("serviceWorker" in navigator) {
 
-}
+            window.addEventListener("load", () => {
 
-</script>
+                navigator.serviceWorker.register("./sw.js")
+                    .then(() => console.log("PWA ativo"))
+                    .catch(err => console.log(err));
+
+            });
+
+        }
+
+    </script>
+
+
+
 
 
 </body>
+
 </html>
