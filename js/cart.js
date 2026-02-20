@@ -3,9 +3,6 @@ const Cart = {
     bairrosData: [],
     taxaEntrega: 0,
 
-    // =========================================
-    // ADICIONAR ITEM
-    // =========================================
     add: function(product) {
         const existingItem = this.items.find(item => item.nome === product.nome);
         if (existingItem) {
@@ -17,12 +14,9 @@ const Cart = {
             });
         }
         this.render();
-        this.update();
+        this.update(); // Estava dando erro aqui porque a função sumiu
     },
 
-    // =========================================
-    // REMOVER ITEM
-    // =========================================
     remove: function(index) {
         if (this.items[index].quantidade > 1) {
             this.items[index].quantidade--;
@@ -33,9 +27,6 @@ const Cart = {
         this.update();
     },
 
-    // =========================================
-    // LIMPAR CARRINHO
-    // =========================================
     clear: function() {
         if (this.items.length === 0) return;
         if (confirm("Deseja realmente limpar o carrinho?")) {
@@ -46,9 +37,6 @@ const Cart = {
         }
     },
 
-    // =========================================
-    // RENDERIZAR CARRINHO
-    // =========================================
     render: function() {
         const container = document.getElementById("cart-items");
         if (!container) return;
@@ -78,9 +66,6 @@ const Cart = {
         }).join('');
     },
 
-    // =========================================
-    // MODAIS
-    // =========================================
     toggle: function() {
         const modal = document.getElementById("cart-modal");
         if (modal) modal.classList.toggle("hidden");
@@ -92,33 +77,24 @@ const Cart = {
         document.getElementById("checkout-modal").classList.remove("hidden");
     },
 
-   closeCheckout: function() {
-        // 1. Garante que o formulário de endereço FECHE
+    closeCheckout: function() {
         document.getElementById("checkout-modal").classList.add("hidden");
-
-        // 2. Garante que o carrinho ABRA novamente
         document.getElementById("cart-modal").classList.remove("hidden");
     },
 
-    // =========================================
-    // AUTOCOMPLETE BAIRROS
-    // =========================================
     sugerirBairros: function(valor) {
         const lista = document.getElementById("lista-sugestoes");
         if (!valor || valor.length < 2) {
             lista.classList.add("hidden");
             return;
         }
-
         const filtrados = this.bairrosData.filter(b =>
             b.bairro.toLowerCase().includes(valor.toLowerCase())
         );
-
         if (filtrados.length === 0) {
             lista.classList.add("hidden");
             return;
         }
-
         lista.innerHTML = filtrados.map(b => `
             <div class="sugestao-item" onclick="Cart.selecionarBairro('${b.bairro}', ${String(b.taxa).replace(',', '.')})">
                 ${b.bairro}
@@ -139,41 +115,46 @@ const Cart = {
         this.update();
     },
 
-    // =========================================
-    // PAGAMENTO
-    // =========================================
-  ajustarPagamento: function(tipo) {
-        const areaPix = document.getElementById("area-pix");
-        const areaTroco = document.getElementById("area-troco");
-        
-        // Esconde as áreas primeiro
-        areaPix.classList.add("hidden");
-        areaTroco.classList.add("hidden");
+    ajustarPagamento: function(tipo) {
+        const areaPix = document.getElementById("area-pix");
+        const areaTroco = document.getElementById("area-troco");
+        if (areaPix) areaPix.classList.add("hidden");
+        if (areaTroco) areaTroco.classList.add("hidden");
 
-        if (tipo === "Pix") {
-            areaPix.classList.remove("hidden");
-            
-            // Puxa a chave aleatória da planilha (coluna chave_pix)
-            // Se não existir na planilha, ele usa o whatsapp como reserva
-            const chave = window.storeConfig.chave_pix || window.storeConfig.whatsapp || "Consulte-nos";
-            
-            // Puxa o favorecido da planilha (coluna favorecido)
+        if (tipo === "Pix") {
+            areaPix.classList.remove("hidden");
+            const chave = window.storeConfig.chave_pix || window.storeConfig.whatsapp || "Consulte-nos";
             const favorecido = window.storeConfig.favorecido || window.storeConfig.nome_loja || "Araújo";
-
-            document.getElementById("chave-pix-valor").innerText = chave;
+            document.getElementById("chave-pix-valor").innerText = chave;
             document.getElementById("favorecido-pix").innerText = favorecido;
-        }
-
-        if (tipo === "Dinheiro") {
-            areaTroco.classList.remove("hidden");
         }
-    },
-    // =========================================
-    // ENVIAR PEDIDO WHATSAPP (MENSAGEM ATUALIZADA)
-    // =========================================
+        if (tipo === "Dinheiro") areaTroco.classList.remove("hidden");
+    },
+
+    // ESTA FUNÇÃO TINHA SUMIDO:
+    copiarPix: function() {
+        const chave = document.getElementById("chave-pix-valor").innerText;
+        navigator.clipboard.writeText(chave);
+        alert("Pix copiado!");
+    },
+
+    // ESTA FUNÇÃO TINHA SUMIDO E É A MAIS IMPORTANTE:
+    update: function() {
+        const subtotal = this.items.reduce((sum, item) => {
+            const preco = parseFloat(String(item.preco || item.preço || 0).replace(',', '.'));
+            return sum + (preco * item.quantidade);
+        }, 0);
+
+        const total = subtotal + this.taxaEntrega;
+        const el = document.getElementById("cart-total");
+        if (el) el.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+        
+        const elFloat = document.getElementById("cart-total-float");
+        if (elFloat) elFloat.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    },
+
     enviarPedido: function() {
         if (this.items.length === 0) return alert("Carrinho vazio");
-
         const nome = document.getElementById("cliente-nome")?.value || "Cliente";
         const bairro = document.getElementById("cliente-bairro")?.value || "Não informado";
         const endereco = document.getElementById("cliente-endereco")?.value || "Não informado";
@@ -188,8 +169,7 @@ const Cart = {
         const hora = new Date().getHours();
         const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
 
-        // --- INÍCIO DA MENSAGEM COM GENTILEZA ---
-        let mensagem = `✅ *NOVO PEDIDO - ${window.storeConfig.nome_loja || 'FINO AÇAÍ'}* ✅\n`;
+        let mensagem = `✅ *NOVO PEDIDO - ${window.storeConfig.nome_loja || 'ARAÚJO'}* ✅\n`;
         mensagem += `------------------------------------------\n`;
         mensagem += `Olá, equipe! ${saudacao}.\n`;
         mensagem += `*${nome}* acabou de enviar um pedido:\n\n`;
@@ -204,7 +184,6 @@ const Cart = {
         });
 
         const totalGeral = subtotal + this.taxaEntrega;
-
         mensagem += `\n------------------------------------------\n`;
         mensagem += `💰 *RESUMO DE VALORES*\n`;
         mensagem += `*Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
@@ -217,27 +196,19 @@ const Cart = {
         mensagem += `*Bairro:* ${bairro}\n`;
         mensagem += `💳 *Forma de Pagamento:* ${pagamento}\n`;
 
-        if (pagamento === "Dinheiro" && troco) {
-            mensagem += `💵 *Troco para:* R$ ${troco}\n`;
-        }
-        
-        if (obs) {
-            mensagem += `\n💬 *OBSERVAÇÕES:* ${obs}\n`;
-        }
+        if (pagamento === "Dinheiro" && troco) mensagem += `💵 *Troco para:* R$ ${troco}\n`;
+        if (obs) mensagem += `\n💬 *OBSERVAÇÕES:* ${obs}\n`;
         
         mensagem += `\n------------------------------------------\n`;
-        mensagem += `🙏 *Aguardamos a confirmação do pedido. Muito obrigado!*`;
-        // --- FIM DA MENSAGEM ---
+        mensagem += `🙏 *Aguardamos a confirmação. Muito obrigado!*`;
 
         const url = `https://api.whatsapp.com/send?phone=${fone}&text=${encodeURIComponent(mensagem)}`;
         window.open(url, "_blank");
 
-        // Limpar carrinho e fechar modal
         this.items = [];
         this.taxaEntrega = 0;
         this.render();
         this.update();
         this.closeCheckout();
     }
-
 };
