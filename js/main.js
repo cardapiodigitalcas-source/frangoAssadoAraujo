@@ -1,5 +1,6 @@
 // Variável global para armazenar as configurações da loja
 window.storeConfig = {};
+let tempoEsperaBairro = null; // Timer para o monitor de bairros
 
 window.onload = async () => {
     renderSkeletons();
@@ -11,7 +12,7 @@ window.onload = async () => {
             window.storeConfig = Array.isArray(data.config) ? data.config[0] : data.config;
             
             const storeNameEl = document.getElementById("store-name");
-            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_loja || "Minha Loja";
+            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_lo_ja || "Minha Loja";
             
             iniciarCarrosselDinamico();
 
@@ -34,8 +35,6 @@ window.onload = async () => {
         }
 
         verificarHorario();
-        
-        // Chamada da nova função de saudação ao carregar
         atualizarSaudacao();
 
         setTimeout(() => {
@@ -48,15 +47,11 @@ window.onload = async () => {
     }
 };
 
-// --- NOVA FUNÇÃO: SAUDAÇÃO DINÂMICA ---
+// --- SAUDAÇÃO DINÂMICA ---
 function atualizarSaudacao() {
     const agora = new Date();
     const hora = agora.getHours();
-    let saudacao = "";
-
-    if (hora >= 5 && hora < 12) saudacao = "Bom dia";
-    else if (hora >= 12 && hora < 18) saudacao = "Boa tarde";
-    else saudacao = "Boa noite";
+    let saudacao = (hora >= 5 && hora < 12) ? "Bom dia" : (hora >= 12 && hora < 18) ? "Boa tarde" : "Boa noite";
 
     const nomeInput = document.getElementById('cliente-nome');
     const nomeCliente = nomeInput ? nomeInput.value : "";
@@ -67,7 +62,7 @@ function atualizarSaudacao() {
     }
 }
 
-// --- FUNÇÃO DO CARROSSEL ---
+// --- CARROSSEL ---
 function iniciarCarrosselDinamico() {
     const config = window.storeConfig;
     const bgElement = document.getElementById("header-bg");
@@ -95,10 +90,12 @@ function verificarHorario() {
 
     const agora = new Date();
     const horaAtual = agora.getHours().toString().padStart(2, '0') + ":" + agora.getMinutes().toString().padStart(2, '0');
-    const abertura = String(config.abertura).substring(0, 5);
-    const fechamento = String(config.fechamento).substring(0, 5);
+    const abertura = String(config.abertura).trim().substring(0, 5);
+    const fechamento = String(config.fechamento).trim().substring(0, 5);
 
-    let estaAberto = (fechamento > abertura) ? (horaAtual >= abertura && horaAtual <= fechamento) : (horaAtual >= abertura || horaAtual < fechamento);
+    let estaAberto = (fechamento > abertura) 
+        ? (horaAtual >= abertura && horaAtual < fechamento) 
+        : (horaAtual >= abertura || horaAtual < fechamento);
 
     if (statusContainer) {
         if (estaAberto) {
@@ -107,7 +104,10 @@ function verificarHorario() {
         } else {
             statusContainer.innerHTML = `🔴 Fechado - Abrimos às ${abertura}`;
             statusContainer.className = "status-loja fechado";
-            if (btnCart) { btnCart.disabled = true; btnCart.innerText = "Loja Fechada"; }
+            if (btnCart) { 
+                btnCart.disabled = true; 
+                btnCart.innerText = "Loja Fechada"; 
+            }
         }
     }
 }
@@ -116,13 +116,11 @@ function verificarHorario() {
 function renderProducts(produtos) {
     const container = document.getElementById("products");
     if (!container) return;
-    
     const ativos = produtos.filter(p => String(p.ativo).toUpperCase() === "SIM");
     
     container.innerHTML = ativos.map(p => {
         const precoNum = parseFloat(String(p.preco || p.preço || 0).replace(',', '.'));
         const produtoJson = JSON.stringify(p).replace(/'/g, "&apos;");
-        
         return `
             <div class="product-card">
                 <div class="product-card-top">
@@ -158,37 +156,66 @@ function renderSkeletons() {
 function renderBairros(bairros) {
     Cart.bairrosData = bairros;
 }
-// --- MONITOR DE BAIRRO ATENDIDO ---
+
+// --- MONITOR DE BAIRRO (VERSÃO CORRIGIDA E SINCRONIZADA) ---
 function monitorarBairro() {
     const inputBairro = document.getElementById('cliente-bairro');
     const statusTaxa = document.getElementById('taxa-status');
+    const btnEnviar = document.getElementById('btn-enviar-whatsapp');
 
     if (!inputBairro || !statusTaxa) return;
 
     inputBairro.addEventListener('input', function() {
         const valorDigitado = this.value.trim();
+        
+        // 1. Mata qualquer timer de erro pendente ao digitar
+        if (tempoEsperaBairro) clearTimeout(tempoEsperaBairro);
 
-        if (valorDigitado.length < 3) {
+        if (valorDigitado.length === 0) {
             statusTaxa.innerText = "";
+            if (btnEnviar) {
+                btnEnviar.disabled = false;
+                btnEnviar.style.opacity = "1";
+                btnEnviar.innerText = "🚀 Enviar Pedido para o WhatsApp";
+            }
             return;
         }
 
-        // Verifica se o bairro existe na memória do sistema
+        const normalizar = (texto) => texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const lista = Cart.bairrosData || [];
-        const achou = lista.find(b => 
-            b.bairro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-            valorDigitado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        );
+        const achou = lista.find(b => normalizar(b.bairro) === normalizar(valorDigitado));
 
         if (achou) {
+            // 2. SE ACHOU: Cancela o erro, mostra o sucesso e DESTRAVA o botão na hora
             statusTaxa.innerHTML = `✅ Taxa de entrega: R$ ${parseFloat(achou.taxa).toFixed(2).replace('.', ',')}`;
-            statusTaxa.style.color = "#155724"; // Verde
+            statusTaxa.style.color = "#155724";
+            if (btnEnviar) {
+                btnEnviar.disabled = false;
+                btnEnviar.style.opacity = "1";
+                btnEnviar.innerText = "🚀 Enviar Pedido para o WhatsApp";
+            }
         } else {
-            statusTaxa.innerHTML = "❌ Ainda não atendemos este bairro.";
-            statusTaxa.style.color = "#d9534f"; // Vermelho (estilo Araújo)
+            // 3. SE NÃO ACHOU: Aguarda o silêncio para mostrar a mensagem de erro
+            statusTaxa.innerText = "Verificando..."; 
+            statusTaxa.style.color = "#999";
+
+            tempoEsperaBairro = setTimeout(() => {
+                const valorFinal = inputBairro.value.trim();
+                const aindaNaoAchou = !lista.find(b => normalizar(b.bairro) === normalizar(valorFinal));
+
+                if (aindaNaoAchou && valorFinal.length >= 3) {
+                    statusTaxa.innerHTML = "❌ Bairro ainda não cadastrado para entrega.";
+                    statusTaxa.style.color = "#d9534f";
+                    if (btnEnviar) {
+                        btnEnviar.disabled = true;
+                        btnEnviar.style.opacity = "0.5";
+                        btnEnviar.innerText = "Bairro não atendido";
+                    }
+                }
+            }, 3000); // 3 segundos de espera
         }
     });
 }
 
-// Ativa o monitor assim que a página carregar
+// Inicialização
 window.addEventListener('DOMContentLoaded', monitorarBairro);
