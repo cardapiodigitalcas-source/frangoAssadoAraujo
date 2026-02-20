@@ -158,3 +158,37 @@ function renderSkeletons() {
 function renderBairros(bairros) {
     Cart.bairrosData = bairros;
 }
+// --- MONITOR DE BAIRRO ATENDIDO ---
+function monitorarBairro() {
+    const inputBairro = document.getElementById('cliente-bairro');
+    const statusTaxa = document.getElementById('taxa-status');
+
+    if (!inputBairro || !statusTaxa) return;
+
+    inputBairro.addEventListener('input', function() {
+        const valorDigitado = this.value.trim();
+
+        if (valorDigitado.length < 3) {
+            statusTaxa.innerText = "";
+            return;
+        }
+
+        // Verifica se o bairro existe na memória do sistema
+        const lista = Cart.bairrosData || [];
+        const achou = lista.find(b => 
+            b.bairro.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+            valorDigitado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        );
+
+        if (achou) {
+            statusTaxa.innerHTML = `✅ Taxa de entrega: R$ ${parseFloat(achou.taxa).toFixed(2).replace('.', ',')}`;
+            statusTaxa.style.color = "#155724"; // Verde
+        } else {
+            statusTaxa.innerHTML = "❌ Ainda não atendemos este bairro.";
+            statusTaxa.style.color = "#d9534f"; // Vermelho (estilo Araújo)
+        }
+    });
+}
+
+// Ativa o monitor assim que a página carregar
+window.addEventListener('DOMContentLoaded', monitorarBairro);
