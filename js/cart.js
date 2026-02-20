@@ -142,40 +142,32 @@ const Cart = {
     // =========================================
     // PAGAMENTO
     // =========================================
-    ajustarPagamento: function(tipo) {
-        document.getElementById("area-pix").classList.add("hidden");
-        document.getElementById("area-troco").classList.add("hidden");
-        if (tipo === "Pix") {
-            document.getElementById("area-pix").classList.remove("hidden");
-            const chave = window.storeConfig.whatsapp || "Consulte-nos";
-            document.getElementById("chave-pix-valor").innerText = chave;
-        }
-        if (tipo === "Dinheiro") document.getElementById("area-troco").classList.remove("hidden");
-    },
-
-    copiarPix: function() {
-        const chave = document.getElementById("chave-pix-valor").innerText;
-        navigator.clipboard.writeText(chave);
-        alert("Pix copiado!");
-    },
-
-    // =========================================
-    // ATUALIZAR TOTAL
-    // =========================================
-    update: function() {
-        const subtotal = this.items.reduce((sum, item) => {
-            const preco = parseFloat(String(item.preco || item.preço || 0).replace(',', '.'));
-            return sum + (preco * item.quantidade);
-        }, 0);
-
-        const total = subtotal + this.taxaEntrega;
-        const el = document.getElementById("cart-total");
-        if (el) el.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
+  ajustarPagamento: function(tipo) {
+        const areaPix = document.getElementById("area-pix");
+        const areaTroco = document.getElementById("area-troco");
         
-        const elFloat = document.getElementById("cart-total-float");
-        if (elFloat) elFloat.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-    },
+        // Esconde as áreas primeiro
+        areaPix.classList.add("hidden");
+        areaTroco.classList.add("hidden");
 
+        if (tipo === "Pix") {
+            areaPix.classList.remove("hidden");
+            
+            // Puxa a chave aleatória da planilha (coluna chave_pix)
+            // Se não existir na planilha, ele usa o whatsapp como reserva
+            const chave = window.storeConfig.chave_pix || window.storeConfig.whatsapp || "Consulte-nos";
+            
+            // Puxa o favorecido da planilha (coluna favorecido)
+            const favorecido = window.storeConfig.favorecido || window.storeConfig.nome_loja || "Araújo";
+
+            document.getElementById("chave-pix-valor").innerText = chave;
+            document.getElementById("favorecido-pix").innerText = favorecido;
+        }
+
+        if (tipo === "Dinheiro") {
+            areaTroco.classList.remove("hidden");
+        }
+    },
     // =========================================
     // ENVIAR PEDIDO WHATSAPP (MENSAGEM ATUALIZADA)
     // =========================================
@@ -247,4 +239,5 @@ const Cart = {
         this.update();
         this.closeCheckout();
     }
+
 };
