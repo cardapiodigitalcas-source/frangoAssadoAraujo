@@ -1,5 +1,6 @@
 // Variável global para armazenar as configurações da loja
 window.storeConfig = {};
+window.allProducts = []; // Armazena todos os produtos para o filtro
 let tempoEsperaBairro = null; // Timer para o monitor de bairros
 
 window.onload = async () => {
@@ -12,7 +13,7 @@ window.onload = async () => {
             window.storeConfig = Array.isArray(data.config) ? data.config[0] : data.config;
             
             const storeNameEl = document.getElementById("store-name");
-            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_lo_ja || "Minha Loja";
+            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_loja || "Minha Loja";
             
             iniciarCarrosselDinamico();
 
@@ -36,10 +37,12 @@ window.onload = async () => {
 
         verificarHorario();
         atualizarSaudacao();
+        aplicarTravaPagamento(); // Atualizada: Gerencia o menu de opções
+        carregarDadosSalvos();   
 
         setTimeout(() => {
             if (data.bairros) renderBairros(data.bairros);
-            if (data.produtos) renderProducts(data.produtos);
+            if (data.produtos) renderProducts(data.produtos); 
         }, 500);
 
     } catch (error) {
@@ -100,10 +103,10 @@ function verificarHorario() {
     if (statusContainer) {
         if (estaAberto) {
             statusContainer.innerHTML = "🟢 Aberto agora";
-            statusContainer.className = "status-loja aberto";
+            statusContainer.className = "status-loja aberto"; 
         } else {
             statusContainer.innerHTML = `🔴 Fechado - Abrimos às ${abertura}`;
-            statusContainer.className = "status-loja fechado";
+            statusContainer.className = "status-loja fechado"; 
             if (btnCart) { 
                 btnCart.disabled = true; 
                 btnCart.innerText = "Loja Fechada"; 
@@ -112,13 +115,29 @@ function verificarHorario() {
     }
 }
 
-// --- RENDERIZAÇÃO DE PRODUTOS ---
+// --- RENDERIZAÇÃO DE PRODUTOS E CATEGORIAS ---
 function renderProducts(produtos) {
     const container = document.getElementById("products");
+    const menuContainer = document.getElementById("category-menu");
     if (!container) return;
+
     const ativos = produtos.filter(p => String(p.ativo).toUpperCase() === "SIM");
+    window.allProducts = ativos; 
+
+    const categorias = ["Todos", ...new Set(ativos.map(p => p.categoria).filter(c => c))];
     
-    container.innerHTML = ativos.map(p => {
+    if (menuContainer) {
+        menuContainer.innerHTML = categorias.map(cat => `
+            <button class="btn-category ${cat === 'Todos' ? 'active' : ''}" onclick="filtrarCategoria('${cat}')">${cat}</button>
+        `).join('');
+    }
+
+    exibirProdutos(ativos);
+}
+
+function exibirProdutos(lista) {
+    const container = document.getElementById("products");
+    container.innerHTML = lista.map(p => {
         const precoNum = parseFloat(String(p.preco || p.preço || 0).replace(',', '.'));
         const produtoJson = JSON.stringify(p).replace(/'/g, "&apos;");
         return `
@@ -132,10 +151,70 @@ function renderProducts(produtos) {
                 </div>
                 <div class="product-card-bottom">
                     <div class="product-price">R$ ${precoNum.toFixed(2).replace('.', ',')}</div>
-                    <button onclick='Cart.add(${produtoJson})' class="btn-add">Adicionar</button>
+                    <button onclick='Cart.add(${produtoJson})' class="btn-add">Comprar</button>
                 </div>
             </div>`;
     }).join('');
+}
+
+function filtrarCategoria(cat) {
+    const filtrados = (cat === "Todos") ? window.allProducts : window.allProducts.filter(p => p.categoria === cat);
+    exibirProdutos(filtrados);
+
+    document.querySelectorAll('.btn-category').forEach(btn => {
+        btn.classList.toggle('active', btn.innerText === cat);
+    });
+}
+
+function carregarDadosSalvos() {
+    const salvos = localStorage.getItem('dados_cliente_araujo');
+    if (salvos) {
+        const dados = JSON.parse(salvos);
+        const inputNome = document.getElementById('cliente-nome');
+        const inputBairro = document.getElementById('cliente-bairro');
+
+        if (inputNome) inputNome.value = dados.nome || "";
+        if (inputBairro) {
+            inputBairro.value = dados.bairro || "";
+            setTimeout(() => inputBairro.dispatchEvent(new Event('input')), 1000);
+        }
+        atualizarSaudacao();
+    }
+}
+
+// --- TRAVA DE PAGAMENTO (CORRIGIDA PARA LIGA/DESLIGA) ---
+function aplicarTravaPagamento() {
+    const config = window.storeConfig;
+    const selectPagamento = document.getElementById('pagamento');
+    const avisoPix = document.getElementById('aviso-somente-pix');
+
+    if (!config) return;
+
+    const aceitaOutros = String(config.aceita_dinheiro_cartao).toUpperCase() === "SIM";
+
+    if (!aceitaOutros) {
+        // LIGA/DESLIGA: Se for "NAO", reconstrói o select apenas com o Pix
+        if (selectPagamento) {
+            selectPagamento.innerHTML = '<option value="Pix">Pix</option>';
+            selectPagamento.value = "Pix";
+        }
+        if (avisoPix) avisoPix.style.display = 'block';
+    } else {
+        // Se for "SIM", reconstrói o select com todas as opções
+        if (selectPagamento) {
+            selectPagamento.innerHTML = `
+                <option value="Pix">Pix</option>
+                <option value="Cartão">Cartão (levar maquininha)</option>
+                <option value="Dinheiro">Dinheiro</option>
+            `;
+        }
+        if (avisoPix) avisoPix.style.display = 'none';
+    }
+
+    // Força o Cart a mostrar a chave Pix imediatamente ao carregar
+    if (typeof Cart !== 'undefined' && typeof Cart.ajustarPagamento === 'function') {
+        Cart.ajustarPagamento("Pix");
+    }
 }
 
 function renderSkeletons() {
@@ -157,7 +236,7 @@ function renderBairros(bairros) {
     Cart.bairrosData = bairros;
 }
 
-// --- MONITOR DE BAIRRO (VERSÃO CORRIGIDA E SINCRONIZADA) ---
+// --- MONITOR DE BAIRRO ---
 function monitorarBairro() {
     const inputBairro = document.getElementById('cliente-bairro');
     const statusTaxa = document.getElementById('taxa-status');
@@ -167,8 +246,6 @@ function monitorarBairro() {
 
     inputBairro.addEventListener('input', function() {
         const valorDigitado = this.value.trim();
-        
-        // 1. Mata qualquer timer de erro pendente ao digitar
         if (tempoEsperaBairro) clearTimeout(tempoEsperaBairro);
 
         if (valorDigitado.length === 0) {
@@ -186,7 +263,6 @@ function monitorarBairro() {
         const achou = lista.find(b => normalizar(b.bairro) === normalizar(valorDigitado));
 
         if (achou) {
-            // 2. SE ACHOU: Cancela o erro, mostra o sucesso e DESTRAVA o botão na hora
             statusTaxa.innerHTML = `✅ Taxa de entrega: R$ ${parseFloat(achou.taxa).toFixed(2).replace('.', ',')}`;
             statusTaxa.style.color = "#155724";
             if (btnEnviar) {
@@ -195,14 +271,11 @@ function monitorarBairro() {
                 btnEnviar.innerText = "🚀 Enviar Pedido para o WhatsApp";
             }
         } else {
-            // 3. SE NÃO ACHOU: Aguarda o silêncio para mostrar a mensagem de erro
             statusTaxa.innerText = "Verificando..."; 
             statusTaxa.style.color = "#999";
-
             tempoEsperaBairro = setTimeout(() => {
                 const valorFinal = inputBairro.value.trim();
                 const aindaNaoAchou = !lista.find(b => normalizar(b.bairro) === normalizar(valorFinal));
-
                 if (aindaNaoAchou && valorFinal.length >= 3) {
                     statusTaxa.innerHTML = "❌ Bairro ainda não cadastrado para entrega.";
                     statusTaxa.style.color = "#d9534f";
@@ -212,10 +285,16 @@ function monitorarBairro() {
                         btnEnviar.innerText = "Bairro não atendido";
                     }
                 }
-            }, 3000); // 3 segundos de espera
+            }, 3000);
         }
     });
 }
 
-// Inicialização
+// Funções globais para o Modal de Pix
+window.fecharModalPix = function() {
+    const modal = document.getElementById('modal-pix-lembrete');
+    if (modal) modal.style.display = 'none';
+    if (typeof Cart !== 'undefined') Cart.clear();
+};
+
 window.addEventListener('DOMContentLoaded', monitorarBairro);
