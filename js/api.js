@@ -1,5 +1,5 @@
 const API = {
-    url: "https://script.google.com/macros/s/AKfycbw7lw62lq1_KoSWFgVaXqfRpNUrmObbmnS9_zejxuhJa4Sm3Kyu5YTlupcVY3dR3ec-vQ/exec", 
+    url: "https://script.google.com/macros/s/AKfycbwgaW0g_bhj9PR-3XaeI01o3PXSK4ijPVyUMRkARlWwqxKN8w9-GTPsRSrOGI0zwxPg-w/exec", 
 
     async load() {
         try {
