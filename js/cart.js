@@ -1,15 +1,14 @@
 /* =========================================
-   CARRINHO ARAÚJO - VERSÃO EMPATIA TOTAL
+   CARRINHO ARAÚJO - VERSÃO ROBUSTA FINAL
    ========================================= */
 
 const Cart = {
     items: [],
     taxaEntrega: 0,
-    bairrosData: [],
+    bairrosData: [], 
     bairroConfirmado: false,
     enviadoAoWhats: false,
 
-    // Função para saudação automática baseada no relógio
     getSaudacao: function() {
         const hora = new Date().getHours();
         if (hora >= 5 && hora < 12) return "Bom dia";
@@ -31,11 +30,17 @@ const Cart = {
             });
         }
         this.update();
-        this.playAnimation(); // Executa a animação de pulo
-        console.log("Adicionado: " + product.nome);
+        this.playAnimation();
     },
 
-    // Nova função para animação de entrada no carrinho
+    changeQuantity: function(index, delta) {
+        this.items[index].quantidade += delta;
+        if (this.items[index].quantidade <= 0) {
+            this.items.splice(index, 1);
+        }
+        this.update();
+    },
+
     playAnimation: function() {
         const btn = document.querySelector(".cart-float");
         if (btn) {
@@ -45,7 +50,12 @@ const Cart = {
     },
 
     update: function() {
+        if (this.bairrosData.length === 0 && window.storeConfig && window.storeConfig.bairros) {
+            this.bairrosData = window.storeConfig.bairros;
+        }
+
         const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const totalComTaxa = subtotal + this.taxaEntrega;
         const qtdTotal = this.items.reduce((sum, item) => sum + item.quantidade, 0);
 
         const totalFloat = document.getElementById("cart-total-float");
@@ -53,10 +63,9 @@ const Cart = {
         const cartCount = document.getElementById("cart-count");
         
         if (totalFloat) totalFloat.innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
-        if (totalModal) totalModal.innerHTML = `<strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong>`;
-        if (cartCount) cartCount.innerText = qtdTotal; // Atualiza a quantidade visual
+        if (totalModal) totalModal.innerHTML = `<strong>R$ ${totalComTaxa.toFixed(2).replace('.', ',')}</strong>`;
+        if (cartCount) cartCount.innerText = qtdTotal;
 
-        // Mostra/Esconde botão flutuante
         const floatBtn = document.querySelector(".cart-float");
         if (floatBtn) {
             if (qtdTotal > 0) floatBtn.classList.remove("hidden");
@@ -77,25 +86,28 @@ const Cart = {
             return;
         }
 
-        // Renderiza itens
-        container.innerHTML = this.items.map(item => `
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
-                <span>${item.quantidade}x ${item.nome}</span>
-                <span>R$ ${(item.preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
+        container.innerHTML = this.items.map((item, index) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee;">
+                <div style="display:flex;flex-direction:column;">
+                    <span style="font-weight:bold;">${item.nome}</span>
+                    <span style="font-size:0.85rem;color:#666;">R$ ${(item.preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button onclick="Cart.changeQuantity(${index}, -1)" style="width:30px;height:30px;border-radius:50%;border:none;background:#f0f0f0;cursor:pointer;">-</button>
+                    <span style="font-weight:bold;">${item.quantidade}</span>
+                    <button onclick="Cart.changeQuantity(${index}, 1)" style="width:30px;height:30px;border-radius:50%;border:none;background:#25d366;color:white;cursor:pointer;">+</button>
+                </div>
             </div>
         `).join('');
 
-        // Lógica de Pedido Mínimo Visual (sem constranger o cliente)
         const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
-        const valorMinimo = 25.00;
-
         if (minOrderContainer) {
-            if (subtotal < valorMinimo) {
-                const falta = (valorMinimo - subtotal).toFixed(2).replace('.', ',');
+            if (subtotal < 15.00) {
+                const falta = (15.00 - subtotal).toFixed(2).replace('.', ',');
                 minOrderContainer.innerHTML = `
-                    <div class="min-order-warning">
-                        🛵 <strong>Pedido Mínimo para Entrega: R$ 25,00</strong><br>
-                        Faltam apenas R$ ${falta} em delícias no seu carrinho!
+                    <div class="min-order-warning" style="background:#fff3e0; color:#e65100; padding:10px; border-radius:8px; margin-bottom:15px; font-size:0.9rem; border:1px solid #ffe0b2; text-align:center;">
+                        🛵 <strong>Pedido Mínimo: R$ 15,00</strong><br>
+                        Faltam R$ ${falta} para completarmos sua entrega!
                     </div>`;
             } else {
                 minOrderContainer.innerHTML = "";
@@ -103,130 +115,224 @@ const Cart = {
         }
     },
 
-    toggle: function() {
-        const modal = document.getElementById("cart-modal");
-        if (modal) {
-            modal.classList.toggle("hidden");
-            this.render();
+    ajustarPagamento: function(valor) {
+        const areaPix = document.getElementById("area-pix");
+        const areaTroco = document.getElementById("area-troco");
+        const config = window.storeConfig || {};
+        
+        if (valor === 'Pix') {
+            if (areaPix) {
+                areaPix.classList.remove("hidden");
+                areaPix.style.display = "block"; 
+                document.getElementById("chave-pix-valor").innerText = config.chave_pix || "Chave não cadastrada";
+                document.getElementById("favorecido-pix").innerText = config.favorecido || "Araújo Assados";
+            }
+            if (areaTroco) {
+                areaTroco.classList.add("hidden");
+                areaTroco.style.display = "none";
+            }
+        } 
+        else if (valor === 'Dinheiro') {
+            if (areaTroco) {
+                areaTroco.classList.remove("hidden");
+                areaTroco.style.display = "block";
+            }
+            if (areaPix) {
+                areaPix.classList.add("hidden");
+                areaPix.style.display = "none";
+            }
+        }
+        else {
+            if (areaPix) { areaPix.classList.add("hidden"); areaPix.style.display = "none"; }
+            if (areaTroco) { areaTroco.classList.add("hidden"); areaTroco.style.display = "none"; }
         }
     },
 
-    // --- FUNÇÃO CHECKOUT (MANTIDA CONFORME APROVADO) ---
-    checkout: function() {
-        if (this.items.length === 0) return alert("Carrinho vazio!");
-
-        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
-        const valorMinimo = 25.00;
-
-        if (subtotal < valorMinimo) {
-            const falta = (valorMinimo - subtotal).toFixed(2).replace('.', ',');
-            alert(`😊 Olá! Para realizarmos a entrega, o pedido mínimo é de R$ 25,00.\n\nFalta apenas R$ ${falta} para você completar!`);
-            return; 
-        }
-
-        document.getElementById("cart-modal").classList.add("hidden");
-        document.getElementById("checkout-modal").classList.remove("hidden");
-    },
-
-    closeCheckout: function() {
-        document.getElementById("checkout-modal").classList.add("hidden");
-    },
-
-    // --- BOTÃO 1: MENSAGEM PARA A LOJA (MANTIDA) ---
     enviarPedido: function() {
-        if (!this.bairroConfirmado) {
-            alert("⚠️ Por favor, selecione seu bairro na lista para calcular a entrega!");
-            return;
-        }
+        if (!this.bairroConfirmado) return alert("⚠️ Selecione o bairro!");
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        
+        // Ajustado para 15.00
+        if (subtotal < 15.00) return alert("😊 O pedido mínimo é R$ 15,00.");
 
         const config = window.storeConfig || {};
         let foneLoja = config.whatsapp ? String(config.whatsapp).replace(/\D/g, '') : "5591992875156";
-        if (!foneLoja.startsWith("55")) foneLoja = "55" + foneLoja;
+        if (foneLoja.length === 11) foneLoja = "55" + foneLoja;
 
         const nome = document.getElementById("cliente-nome").value;
         const endereco = document.getElementById("cliente-endereco").value;
         const bairro = document.getElementById("cliente-bairro").value;
         const pagamento = document.getElementById("pagamento").value;
         const obs = document.getElementById("cliente-obs").value;
+        const troco = document.getElementById("valor-troco") ? document.getElementById("valor-troco").value : "";
 
-        if (!nome || !endereco) return alert("Preencha seu nome e endereço para entregarmos com carinho!");
+        if (!nome || !endereco) return alert("Por favor, preencha nome e endereço.");
 
-        const saudacao = this.getSaudacao();
+        const btnEnviar = document.querySelector("button[onclick='Cart.enviarPedido()']");
+        if (btnEnviar) {
+            btnEnviar.disabled = true;
+            btnEnviar.innerText = "✅ Pedido Enviado";
+            btnEnviar.style.background = "#ccc";
+            btnEnviar.onclick = null;
+        }
+
         let itensTexto = this.items.map(i => `✅ *${i.quantidade}x* ${i.nome}`).join('\n');
-        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
         const totalGeral = (subtotal + this.taxaEntrega).toFixed(2).replace('.', ',');
 
-        const msg = `✨ *${saudacao}, equipe Araújo!* ❤️\n\n` +
-                    `Gostaria de fazer esse pedido com vocês hoje:\n\n` +
-                    `👤 *CLIENTE:* ${nome}\n` +
-                    `📍 *ENDEREÇO:* ${endereco}\n` +
-                    `🏙️ *BAIRRO:* ${bairro}\n\n` +
-                    `*MEU PEDIDO:* \n${itensTexto}\n\n` +
-                    `🛵 *TAXA:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n` +
-                    `💰 *TOTAL: R$ ${totalGeral}*\n` +
-                    `💳 *PAGAMENTO:* ${pagamento}\n` +
-                    `${obs ? '💬 *OBSERVAÇÃO:* ' + obs : ''}\n\n` +
-                    `*Desde já, muito obrigado pelo excelente atendimento e carinho!* 🙏✨`;
+        let msg = `✨ *${this.getSaudacao()}, equipe ${config.nome_loja || 'Mais um pedido Chegando!'}!* ❤️\n\n` +
+                  `👤 *CLIENTE:* ${nome}\n` +
+                  `📍 *ENDEREÇO:* ${endereco}\n` +
+                  `🏙️ *BAIRRO:* ${bairro}\n\n` +
+                  `*MEU PEDIDO:* \n${itensTexto}\n\n` +
+                  `🛵 *TAXA:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n` +
+                  `💰 *TOTAL: R$ ${totalGeral}*\n` +
+                  `💳 *PAGAMENTO:* ${pagamento}\n`;
+
+        if (pagamento === 'Dinheiro' && troco) {
+            msg += `💵 *TROCO PARA:* R$ ${troco}\n`;
+        }
+        if (obs) msg += `\n💬 *OBS:* ${obs}`;
 
         window.open(`https://api.whatsapp.com/send?phone=${foneLoja}&text=${encodeURIComponent(msg)}`, "_blank");
-
+        
         this.enviadoAoWhats = true;
+
+        if (pagamento === 'Pix') {
+            this.abrirModalCopiaPix();
+        } else {
+            this.liberarBotaoMotoboy();
+        }
+    },
+
+    abrirModalCopiaPix: function() {
+        const config = window.storeConfig || {};
+        const modal = document.getElementById("modal-pix-lembrete");
+        if (modal) {
+            modal.style.display = "flex";
+            modal.querySelector("h2").innerText = "Falta pouco! 🏁";
+            modal.querySelector("p").innerHTML = 
+                `Sua chave Pix: <strong>${config.chave_pix}</strong><br><br>` +
+                `1. Clique abaixo para copiar e pagar.<br>` +
+                `2. Depois, <b>solicite o entregador</b> no botão laranja!`;
+            
+            const btn = modal.querySelector("button");
+            btn.innerText = "📋 COPIAR E IR PAGAR";
+            btn.onclick = () => {
+                this.copiarPix();
+                btn.innerText = "✅ COPIADO!";
+                btn.style.background = "#25d366";
+                
+                setTimeout(() => {
+                    alert("Chave copiada! Agora clique no botão laranja 'SOLICITAR ENTREGADOR' para finalizar.");
+                    modal.style.display = "none";
+                    this.liberarBotaoMotoboy();
+                }, 1000);
+            };
+        }
+    },
+
+    liberarBotaoMotoboy: function() {
         const btnMoto = document.getElementById("btn-solicitar-motoboy");
         if (btnMoto) {
             btnMoto.disabled = false;
             btnMoto.style.opacity = "1";
-            btnMoto.style.background = "#ff9800"; 
-            btnMoto.innerText = "🛵 2. Avisar Entregador Agora";
+            btnMoto.style.background = "#ff6600"; 
+            btnMoto.classList.add("cart-bump");
+            btnMoto.innerText = "🛵 SOLICITAR ENTREGADOR";
         }
-        alert("✔️ Pedido enviado ao WhatsApp da Loja!\n\n⚠️ NÃO FECHE ESSA TELA. Agora clique no botão laranja abaixo para avisar o entregador.");
     },
 
-    // --- BOTÃO 2: MENSAGEM PARA O MOTOBOY (MANTIDA) ---
     solicitarMotoboy: function() {
-        const foneCentral = "5591980481900"; 
-        const saudacao = this.getSaudacao();
-        const linkMapsLoja = "https://maps.app.goo.gl/xUBwD25yRjBRgNPe8"; 
-
-        const nomeCliente = document.getElementById("cliente-nome").value;
+        const config = window.storeConfig || {};
+        const foneCentral = "5591992875156"; 
+        const nome = document.getElementById("cliente-nome").value;
         const enderecoCliente = document.getElementById("cliente-endereco").value;
         const bairroCliente = document.getElementById("cliente-bairro").value;
 
         const msgLogistica = 
-            `🛵 *${saudacao}, amigo entregador!* ✨\n` +
-            `Temos uma entrega saindo do Araújo, pode nos ajudar?\n\n` +
-            `🏢 *ESTABELECIMENTO (COLETA):*\n` +
-            `Frango Assado do Araújo\n` +
-            `📍 Localização da Loja: ${linkMapsLoja}\n` +
-            `Endereço: Av. Altamira, sn - Bairro: Saudade\n\n` +
-            `--------------------------\n\n` +
-            `👤 *CLIENTE:* ${nomeCliente}\n` +
-            `🏠 *ENTREGA:* ${enderecoCliente}\n` +
-            `🏙️ *BAIRRO:* ${bairroCliente}\n\n` +
-            `💵 *TAXA:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n\n` +
-            `*Muito obrigado, bom trabalho e dirija com segurança!* 🙏🍀`;
+`${this.getSaudacao()}, amigo entregador! ✨
+Temos uma entrega saindo do ${config.nome_loja ||'Loja'}, pode nos ajudar? 
 
-        const url = `https://api.whatsapp.com/send?phone=${foneCentral}&text=${encodeURIComponent(msgLogistica)}`;
-        window.open(url, "_blank");
+🏢 ESTABELECIMENTO (COLETA):
+${config.nome_lo_ja || 'Frango Assado do Araújo'}
+📍 Localização da Loja: https://maps.google.com/?q=Av.+Altamira,+Saudade
+Endereço: Av. Altamira, sn - Bairro: Saudade
 
-        alert("Tudo pronto! Sua entrega foi solicitada com sucesso. Muito obrigado! ❤️");
-        this.items = []; 
-        this.update();
-        this.closeCheckout();
-        setTimeout(() => { location.reload(); }, 500); 
+--------------------------
+
+👤 CLIENTE: ${nome}
+🏠 ENTREGA: ${enderecoCliente}
+🏙️ BAIRRO: ${bairroCliente}
+
+💵 TAXA: R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}
+
+Muito obrigado, bom trabalho e dirija com segurança! 🙏🍀 bY, Cardapio digital`;
+
+        window.open(`https://api.whatsapp.com/send?phone=${foneCentral}&text=${encodeURIComponent(msgLogistica)}`, "_blank");
+        
+        alert("✨ Araújo Assados agradece seu pedido! ✨\n\nPedido enviado e entregador solicitado. Agora é só aguardar! ❤️");
+        
+        setTimeout(() => { location.reload(); }, 500);
     },
 
-    clear: function() {
-        if (confirm("Limpar carrinho?")) {
-            this.items = [];
-            this.update();
-            this.render();
-            this.toggle();
+    sugerirBairros: function(valor) {
+        const statusBairro = document.getElementById("taxa-status");
+        if (!statusBairro || !valor) return;
+
+        const normalizar = (str) => {
+            if (!str) return ""; 
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        };
+
+        const valorLimpo = normalizar(valor);
+        const bairroEncontrado = this.bairrosData.find(b => b && b.nome && normalizar(b.nome) === valorLimpo);
+
+        if (bairroEncontrado) {
+            this.taxaEntrega = parseFloat(bairroEncontrado.taxa);
+            this.bairroConfirmado = true;
+            statusBairro.innerHTML = `<span style="color: #25d366;">✅ Taxa: R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}</span>`;
+        } else {
+            this.taxaEntrega = 0;
+            this.bairroConfirmado = false;
+            statusBairro.innerHTML = `<span style="color: #d9534f;">❌ Bairro não localizado.</span>`;
+        }
+        this.update();
+    },
+
+    checkout: function() {
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        
+        // Ajustado para 15.00
+        if (subtotal < 15.00) return alert("😊 O pedido mínimo é R$ 15,00.");
+        
+        document.getElementById("cart-modal").classList.add("hidden");
+        document.getElementById("checkout-modal").classList.remove("hidden");
+        this.ajustarPagamento(document.getElementById("pagamento").value);
+    },
+
+    toggle: function() {
+        const modal = document.getElementById("cart-modal");
+        if (modal) { modal.classList.toggle("hidden"); this.render(); }
+    },
+
+    closeCheckout: function() {
+        document.getElementById("checkout-modal").classList.add("hidden");
+    },
+
+    copiarPix: function() {
+        const config = window.storeConfig || {};
+        if (config.chave_pix) {
+            navigator.clipboard.writeText(config.chave_pix);
         }
     },
 
-    sugerirBairros: function(v) {},
-    ajustarPagamento: function(v) {},
-    copiarPix: function() {}
+    clear: function() {
+        if(confirm("Deseja limpar o carrinho?")) {
+            this.items = [];
+            this.update();
+            this.toggle();
+        }
+    }
 };
 
 window.Cart = Cart;
