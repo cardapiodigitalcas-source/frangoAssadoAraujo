@@ -10,10 +10,11 @@ window.onload = async () => {
         const data = await API.load();
         
         if (data && data.config) {
+            // Garante que pegamos os dados da planilha corretamente
             window.storeConfig = Array.isArray(data.config) ? data.config[0] : data.config;
             
             const storeNameEl = document.getElementById("store-name");
-            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_loja || "Minha Loja";
+            if (storeNameEl) storeNameEl.innerText = window.storeConfig.nome_loja || "Araújo Frango Assado";
             
             iniciarCarrosselDinamico();
 
@@ -37,7 +38,7 @@ window.onload = async () => {
 
         verificarHorario();
         atualizarSaudacao();
-        aplicarTravaPagamento(); // Atualizada: Gerencia o menu de opções
+        aplicarTravaPagamento(); 
         carregarDadosSalvos();   
 
         setTimeout(() => {
@@ -115,7 +116,7 @@ function verificarHorario() {
     }
 }
 
-// --- RENDERIZAÇÃO DE PRODUTOS E CATEGORIAS ---
+// --- RENDERIZAÇÃO DE PRODUTOS ---
 function renderProducts(produtos) {
     const container = document.getElementById("products");
     const menuContainer = document.getElementById("category-menu");
@@ -138,6 +139,7 @@ function renderProducts(produtos) {
 function exibirProdutos(lista) {
     const container = document.getElementById("products");
     container.innerHTML = lista.map(p => {
+        // Suporte para 'preco' ou 'preço' da planilha
         const precoNum = parseFloat(String(p.preco || p.preço || 0).replace(',', '.'));
         const produtoJson = JSON.stringify(p).replace(/'/g, "&apos;");
         return `
@@ -176,13 +178,13 @@ function carregarDadosSalvos() {
         if (inputNome) inputNome.value = dados.nome || "";
         if (inputBairro) {
             inputBairro.value = dados.bairro || "";
+            // Pequeno delay para garantir que a lista de bairros carregou
             setTimeout(() => inputBairro.dispatchEvent(new Event('input')), 1000);
         }
         atualizarSaudacao();
     }
 }
 
-// --- TRAVA DE PAGAMENTO (CORRIGIDA PARA LIGA/DESLIGA) ---
 function aplicarTravaPagamento() {
     const config = window.storeConfig;
     const selectPagamento = document.getElementById('pagamento');
@@ -193,14 +195,12 @@ function aplicarTravaPagamento() {
     const aceitaOutros = String(config.aceita_dinheiro_cartao).toUpperCase() === "SIM";
 
     if (!aceitaOutros) {
-        // LIGA/DESLIGA: Se for "NAO", reconstrói o select apenas com o Pix
         if (selectPagamento) {
             selectPagamento.innerHTML = '<option value="Pix">Pix</option>';
             selectPagamento.value = "Pix";
         }
         if (avisoPix) avisoPix.style.display = 'block';
     } else {
-        // Se for "SIM", reconstrói o select com todas as opções
         if (selectPagamento) {
             selectPagamento.innerHTML = `
                 <option value="Pix">Pix</option>
@@ -209,11 +209,6 @@ function aplicarTravaPagamento() {
             `;
         }
         if (avisoPix) avisoPix.style.display = 'none';
-    }
-
-    // Força o Cart a mostrar a chave Pix imediatamente ao carregar
-    if (typeof Cart !== 'undefined' && typeof Cart.ajustarPagamento === 'function') {
-        Cart.ajustarPagamento("Pix");
     }
 }
 
@@ -233,10 +228,12 @@ function renderSkeletons() {
 }
 
 function renderBairros(bairros) {
-    Cart.bairrosData = bairros;
+    if (typeof Cart !== 'undefined') {
+        Cart.bairrosData = bairros;
+    }
 }
 
-// --- MONITOR DE BAIRRO ---
+// --- MONITOR DE BAIRRO (COM INTEGRAÇÃO AO CART) ---
 function monitorarBairro() {
     const inputBairro = document.getElementById('cliente-bairro');
     const statusTaxa = document.getElementById('taxa-status');
@@ -248,53 +245,43 @@ function monitorarBairro() {
         const valorDigitado = this.value.trim();
         if (tempoEsperaBairro) clearTimeout(tempoEsperaBairro);
 
+        // Se apagar o bairro, desativa o botão e a confirmação no Cart
         if (valorDigitado.length === 0) {
             statusTaxa.innerText = "";
-            if (btnEnviar) {
-                btnEnviar.disabled = false;
-                btnEnviar.style.opacity = "1";
-                btnEnviar.innerText = "🚀 Enviar Pedido para o WhatsApp";
-            }
+            if (typeof Cart !== 'undefined') Cart.bairroConfirmado = false; 
             return;
         }
 
         const normalizar = (texto) => texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const lista = Cart.bairrosData || [];
+        const lista = (typeof Cart !== 'undefined' ? Cart.bairrosData : []) || [];
         const achou = lista.find(b => normalizar(b.bairro) === normalizar(valorDigitado));
 
         if (achou) {
-            statusTaxa.innerHTML = `✅ Taxa de entrega: R$ ${parseFloat(achou.taxa).toFixed(2).replace('.', ',')}`;
+            const taxaFloat = parseFloat(String(achou.taxa).replace(',', '.'));
+            statusTaxa.innerHTML = `✅ Taxa de entrega: R$ ${taxaFloat.toFixed(2).replace('.', ',')}`;
             statusTaxa.style.color = "#155724";
-            if (btnEnviar) {
-                btnEnviar.disabled = false;
-                btnEnviar.style.opacity = "1";
-                btnEnviar.innerText = "🚀 Enviar Pedido para o WhatsApp";
+
+            // SINCRONIZA COM O CART
+            if (typeof Cart !== 'undefined') {
+                Cart.taxaEntrega = taxaFloat;
+                Cart.bairroConfirmado = true; // Libera o envio
+                Cart.update();
             }
         } else {
             statusTaxa.innerText = "Verificando..."; 
             statusTaxa.style.color = "#999";
+            if (typeof Cart !== 'undefined') Cart.bairroConfirmado = false;
+
             tempoEsperaBairro = setTimeout(() => {
                 const valorFinal = inputBairro.value.trim();
                 const aindaNaoAchou = !lista.find(b => normalizar(b.bairro) === normalizar(valorFinal));
                 if (aindaNaoAchou && valorFinal.length >= 3) {
-                    statusTaxa.innerHTML = "❌ Bairro ainda não cadastrado para entrega.";
+                    statusTaxa.innerHTML = "❌ Bairro não atendido.";
                     statusTaxa.style.color = "#d9534f";
-                    if (btnEnviar) {
-                        btnEnviar.disabled = true;
-                        btnEnviar.style.opacity = "0.5";
-                        btnEnviar.innerText = "Bairro não atendido";
-                    }
                 }
-            }, 3000);
+            }, 1500);
         }
     });
 }
-
-// Funções globais para o Modal de Pix
-window.fecharModalPix = function() {
-    const modal = document.getElementById('modal-pix-lembrete');
-    if (modal) modal.style.display = 'none';
-    if (typeof Cart !== 'undefined') Cart.clear();
-};
 
 window.addEventListener('DOMContentLoaded', monitorarBairro);
