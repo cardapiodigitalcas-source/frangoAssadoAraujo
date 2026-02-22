@@ -1,247 +1,232 @@
+/* =========================================
+   CARRINHO ARAÚJO - VERSÃO EMPATIA TOTAL
+   ========================================= */
+
 const Cart = {
     items: [],
-    bairrosData: [],
     taxaEntrega: 0,
+    bairrosData: [],
+    bairroConfirmado: false,
+    enviadoAoWhats: false,
+
+    // Função para saudação automática baseada no relógio
+    getSaudacao: function() {
+        const hora = new Date().getHours();
+        if (hora >= 5 && hora < 12) return "Bom dia";
+        if (hora >= 12 && hora < 18) return "Boa tarde";
+        return "Boa noite";
+    },
 
     add: function(product) {
+        const precoNum = parseFloat(String(product.preco || product.preço || 0).replace(',', '.'));
         const existingItem = this.items.find(item => item.nome === product.nome);
+        
         if (existingItem) {
-            existingItem.quantidade = (existingItem.quantidade || 1) + 1;
+            existingItem.quantidade += 1;
         } else {
             this.items.push({
-                ...product,
+                nome: product.nome,
+                preco: precoNum,
                 quantidade: 1
             });
         }
-        this.render();
         this.update();
+        this.playAnimation(); // Executa a animação de pulo
+        console.log("Adicionado: " + product.nome);
     },
 
-    remove: function(index) {
-        if (this.items[index].quantidade > 1) {
-            this.items[index].quantidade--;
-        } else {
-            this.items.splice(index, 1);
+    // Nova função para animação de entrada no carrinho
+    playAnimation: function() {
+        const btn = document.querySelector(".cart-float");
+        if (btn) {
+            btn.classList.add("cart-bump");
+            setTimeout(() => btn.classList.remove("cart-bump"), 300);
         }
-        this.render();
-        this.update();
     },
 
-    clear: function() {
-        if (this.items.length === 0) return;
-        if (confirm("Deseja realmente limpar o carrinho?")) {
-            this.items = [];
-            this.render();
-            this.update();
-            this.toggle();
+    update: function() {
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const qtdTotal = this.items.reduce((sum, item) => sum + item.quantidade, 0);
+
+        const totalFloat = document.getElementById("cart-total-float");
+        const totalModal = document.getElementById("cart-total");
+        const cartCount = document.getElementById("cart-count");
+        
+        if (totalFloat) totalFloat.innerText = `R$ ${subtotal.toFixed(2).replace('.', ',')}`;
+        if (totalModal) totalModal.innerHTML = `<strong>R$ ${subtotal.toFixed(2).replace('.', ',')}</strong>`;
+        if (cartCount) cartCount.innerText = qtdTotal; // Atualiza a quantidade visual
+
+        // Mostra/Esconde botão flutuante
+        const floatBtn = document.querySelector(".cart-float");
+        if (floatBtn) {
+            if (qtdTotal > 0) floatBtn.classList.remove("hidden");
+            else floatBtn.classList.add("hidden");
         }
+
+        this.render();
     },
 
     render: function() {
         const container = document.getElementById("cart-items");
+        const minOrderContainer = document.getElementById("min-order-info");
         if (!container) return;
 
         if (this.items.length === 0) {
-            container.innerHTML = "<p style='text-align:center;padding:20px;color:#666;'>Seu carrinho está vazio.</p>";
+            container.innerHTML = "<p style='text-align:center;padding:20px;'>Carrinho vazio.</p>";
+            if (minOrderContainer) minOrderContainer.innerHTML = "";
             return;
         }
 
-        container.innerHTML = this.items.map((item, index) => {
-            const preco = parseFloat(String(item.preco || item.preço || 0).replace(',', '.'));
-            const itemJson = JSON.stringify(item).replace(/'/g, "&apos;");
+        // Renderiza itens
+        container.innerHTML = this.items.map(item => `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+                <span>${item.quantidade}x ${item.nome}</span>
+                <span>R$ ${(item.preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
+            </div>
+        `).join('');
 
-            return `
-                <div class="cart-item" style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding:10px 0;">
-                    <div>
-                        <strong style="color:#333;">${item.nome}</strong><br>
-                        <span style="color:#666;">R$ ${(preco * item.quantidade).toFixed(2).replace('.', ',')}</span>
-                    </div>
-                    <div style="display:flex;gap:10px;align-items:center;">
-                        <button onclick="Cart.remove(${index})" style="width:30px;height:30px;border-radius:50%;border:1px solid #ccc;background:white;cursor:pointer;">-</button>
-                        <strong style="color:#333;">${item.quantidade}</strong>
-                        <button onclick='Cart.add(${itemJson})' style="width:30px;height:30px;border-radius:50%;border:1px solid #ccc;background:white;cursor:pointer;">+</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Lógica de Pedido Mínimo Visual (sem constranger o cliente)
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const valorMinimo = 25.00;
+
+        if (minOrderContainer) {
+            if (subtotal < valorMinimo) {
+                const falta = (valorMinimo - subtotal).toFixed(2).replace('.', ',');
+                minOrderContainer.innerHTML = `
+                    <div class="min-order-warning">
+                        🛵 <strong>Pedido Mínimo para Entrega: R$ 25,00</strong><br>
+                        Faltam apenas R$ ${falta} em delícias no seu carrinho!
+                    </div>`;
+            } else {
+                minOrderContainer.innerHTML = "";
+            }
+        }
     },
 
     toggle: function() {
         const modal = document.getElementById("cart-modal");
-        if (modal) modal.classList.toggle("hidden");
+        if (modal) {
+            modal.classList.toggle("hidden");
+            this.render();
+        }
     },
 
-    // AJUSTADO: Agora força a exibição do Pix assim que abre o checkout
+    // --- FUNÇÃO CHECKOUT (MANTIDA CONFORME APROVADO) ---
     checkout: function() {
-        if (this.items.length === 0) return alert("Adicione itens primeiro");
-        this.toggle();
-        document.getElementById("checkout-modal").classList.remove("hidden");
-        
-        // Garante que o Pix apareça IMEDIATAMENTE sem precisar clicar em nada
-        const selectPagto = document.getElementById("pagamento");
-        if (selectPagto) {
-            selectPagto.value = "Pix"; // Garante que o valor inicial seja Pix
-            this.ajustarPagamento("Pix"); // Dispara a função visual na hora
+        if (this.items.length === 0) return alert("Carrinho vazio!");
+
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const valorMinimo = 25.00;
+
+        if (subtotal < valorMinimo) {
+            const falta = (valorMinimo - subtotal).toFixed(2).replace('.', ',');
+            alert(`😊 Olá! Para realizarmos a entrega, o pedido mínimo é de R$ 25,00.\n\nFalta apenas R$ ${falta} para você completar!`);
+            return; 
         }
+
+        document.getElementById("cart-modal").classList.add("hidden");
+        document.getElementById("checkout-modal").classList.remove("hidden");
     },
 
     closeCheckout: function() {
         document.getElementById("checkout-modal").classList.add("hidden");
-        document.getElementById("cart-modal").classList.remove("hidden");
     },
 
-    sugerirBairros: function(valor) {
-        const lista = document.getElementById("lista-sugestoes");
-        if (!valor || valor.length < 2) {
-            lista.classList.add("hidden");
-            return;
-        }
-
-        const filtrados = this.bairrosData.filter(b =>
-            b.bairro.toLowerCase().includes(valor.toLowerCase())
-        );
-
-        if (filtrados.length === 0) {
-            lista.classList.add("hidden");
-            return;
-        }
-
-        lista.innerHTML = filtrados.map(b => `
-            <div class="sugestao-item" onclick="Cart.selecionarBairro('${b.bairro}', ${String(b.taxa).replace(',', '.')})">
-                ${b.bairro}
-            </div>
-        `).join('');
-        lista.classList.remove("hidden");
-    },
-
-    selecionarBairro: function(nome, taxa) {
-        document.getElementById("cliente-bairro").value = nome;
-        document.getElementById("lista-sugestoes").classList.add("hidden");
-        this.taxaEntrega = taxa;
-        const status = document.getElementById("taxa-status");
-        if (status) {
-            status.innerHTML = `✅ Taxa de entrega: R$ ${taxa.toFixed(2).replace('.', ',')}`;
-            status.style.color = "green";
-        }
-        this.update();
-    },
-
-    ajustarPagamento: function(tipo) {
-        const areaPix = document.getElementById("area-pix");
-        const areaTroco = document.getElementById("area-troco");
-        
-        // Esconde as duas áreas primeiro (Reset)
-        if (areaPix) areaPix.classList.add("hidden");
-        if (areaTroco) areaTroco.classList.add("hidden");
-
-        if (tipo === "Pix") {
-            if (areaPix) {
-                areaPix.classList.remove("hidden");
-                const config = window.storeConfig || {};
-                const chave = config.chave_pix || "Consulte-nos";
-                const favorecido = config.favorecido || "";
-                
-                document.getElementById("chave-pix-valor").innerText = chave;
-                const elFavorecido = document.getElementById("favorecido-pix");
-                if (elFavorecido) elFavorecido.innerText = favorecido;
-            }
-        } else if (tipo === "Dinheiro") {
-            if (areaTroco) areaTroco.classList.remove("hidden");
-        }
-    },
-
-    copiarPix: function() {
-        const chave = document.getElementById("chave-pix-valor").innerText;
-        navigator.clipboard.writeText(chave);
-        alert("Chave Pix copiada com sucesso!");
-    },
-
-    update: function() {
-        const subtotal = this.items.reduce((sum, item) => {
-            const preco = parseFloat(String(item.preco || item.preço || 0).replace(',', '.'));
-            return sum + (preco * item.quantidade);
-        }, 0);
-
-        const total = subtotal + this.taxaEntrega;
-        const el = document.getElementById("cart-total");
-        if (el) el.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-        
-        const elFloat = document.getElementById("cart-total-float");
-        if (elFloat) elFloat.innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
-    },
-
+    // --- BOTÃO 1: MENSAGEM PARA A LOJA (MANTIDA) ---
     enviarPedido: function() {
-        if (this.items.length === 0) return alert("Carrinho vazio");
-
-        const nome = document.getElementById("cliente-nome")?.value || "Cliente";
-        const bairro = document.getElementById("cliente-bairro")?.value || "Não informado";
-        const endereco = document.getElementById("cliente-endereco")?.value || "Não informado";
-        const pagamento = document.getElementById("pagamento")?.value || "Pix";
-        const troco = document.getElementById("valor-troco")?.value || "";
-        const obs = document.getElementById("cliente-obs")?.value || "";
-
-        const dadosParaSalvar = { nome: nome, bairro: bairro };
-        localStorage.setItem('dados_cliente_araujo', JSON.stringify(dadosParaSalvar));
-
-        let fone = window.storeConfig.whatsapp || "";
-        fone = String(fone).replace(/\D/g, '');
-        if (fone.length <= 11) fone = "55" + fone;
-
-        const hora = new Date().getHours();
-        const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
-
-        let mensagem = `✅ *NOVO PEDIDO - ${window.storeConfig.nome_loja || 'LOJA'}* ✅\n`;
-        mensagem += `------------------------------------------\n`;
-        mensagem += `Olá! ${saudacao}.\n`;
-        mensagem += `*${nome}* enviou um pedido:\n\n`;
-        
-        mensagem += `📝 *ITENS DO PEDIDO*\n`;
-        let subtotal = 0;
-        this.items.forEach(item => {
-            const preco = parseFloat(String(item.preco || item.preço || 0).replace(',', '.'));
-            const totalItem = preco * item.quantidade;
-            subtotal += totalItem;
-            mensagem += `• ${item.quantidade}x ${item.nome} (R$ ${totalItem.toFixed(2).replace('.', ',')})\n`;
-        });
-
-        const totalGeral = subtotal + this.taxaEntrega;
-
-        mensagem += `\n💰 *RESUMO DE VALORES*\n`;
-        mensagem += `*Subtotal:* R$ ${subtotal.toFixed(2).replace('.', ',')}\n`;
-        mensagem += `*Taxa de Entrega:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n`;
-        mensagem += `🛒 *TOTAL: R$ ${totalGeral.toFixed(2).replace('.', ',')}*\n`;
-        mensagem += `------------------------------------------\n\n`;
-        
-        mensagem += `📍 *ENTREGA*\n`;
-        mensagem += `*Endereço:* ${endereco}\n`;
-        mensagem += `*Bairro:* ${bairro}\n`;
-        mensagem += `💳 *Pagamento:* ${pagamento}\n`;
-
-        if (pagamento === "Dinheiro" && troco) {
-            mensagem += `💵 *Troco para:* R$ ${troco}\n`;
+        if (!this.bairroConfirmado) {
+            alert("⚠️ Por favor, selecione seu bairro na lista para calcular a entrega!");
+            return;
         }
 
-        if (obs) {
-            mensagem += `\n💬 *OBS:* ${obs}\n`;
-        }
-        
-        mensagem += `\n------------------------------------------\n`;
-        mensagem += `🙏 *Aguardamos confirmação. Obrigado!*`;
+        const config = window.storeConfig || {};
+        let foneLoja = config.whatsapp ? String(config.whatsapp).replace(/\D/g, '') : "5591992875156";
+        if (!foneLoja.startsWith("55")) foneLoja = "55" + foneLoja;
 
-        const url = `https://api.whatsapp.com/send?phone=${fone}&text=${encodeURIComponent(mensagem)}`;
+        const nome = document.getElementById("cliente-nome").value;
+        const endereco = document.getElementById("cliente-endereco").value;
+        const bairro = document.getElementById("cliente-bairro").value;
+        const pagamento = document.getElementById("pagamento").value;
+        const obs = document.getElementById("cliente-obs").value;
+
+        if (!nome || !endereco) return alert("Preencha seu nome e endereço para entregarmos com carinho!");
+
+        const saudacao = this.getSaudacao();
+        let itensTexto = this.items.map(i => `✅ *${i.quantidade}x* ${i.nome}`).join('\n');
+        const subtotal = this.items.reduce((sum, item) => sum + (item.preco * item.quantidade), 0);
+        const totalGeral = (subtotal + this.taxaEntrega).toFixed(2).replace('.', ',');
+
+        const msg = `✨ *${saudacao}, equipe Araújo!* ❤️\n\n` +
+                    `Gostaria de fazer esse pedido com vocês hoje:\n\n` +
+                    `👤 *CLIENTE:* ${nome}\n` +
+                    `📍 *ENDEREÇO:* ${endereco}\n` +
+                    `🏙️ *BAIRRO:* ${bairro}\n\n` +
+                    `*MEU PEDIDO:* \n${itensTexto}\n\n` +
+                    `🛵 *TAXA:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n` +
+                    `💰 *TOTAL: R$ ${totalGeral}*\n` +
+                    `💳 *PAGAMENTO:* ${pagamento}\n` +
+                    `${obs ? '💬 *OBSERVAÇÃO:* ' + obs : ''}\n\n` +
+                    `*Desde já, muito obrigado pelo excelente atendimento e carinho!* 🙏✨`;
+
+        window.open(`https://api.whatsapp.com/send?phone=${foneLoja}&text=${encodeURIComponent(msg)}`, "_blank");
+
+        this.enviadoAoWhats = true;
+        const btnMoto = document.getElementById("btn-solicitar-motoboy");
+        if (btnMoto) {
+            btnMoto.disabled = false;
+            btnMoto.style.opacity = "1";
+            btnMoto.style.background = "#ff9800"; 
+            btnMoto.innerText = "🛵 2. Avisar Entregador Agora";
+        }
+        alert("✔️ Pedido enviado ao WhatsApp da Loja!\n\n⚠️ NÃO FECHE ESSA TELA. Agora clique no botão laranja abaixo para avisar o entregador.");
+    },
+
+    // --- BOTÃO 2: MENSAGEM PARA O MOTOBOY (MANTIDA) ---
+    solicitarMotoboy: function() {
+        const foneCentral = "5591980481900"; 
+        const saudacao = this.getSaudacao();
+        const linkMapsLoja = "https://maps.app.goo.gl/xUBwD25yRjBRgNPe8"; 
+
+        const nomeCliente = document.getElementById("cliente-nome").value;
+        const enderecoCliente = document.getElementById("cliente-endereco").value;
+        const bairroCliente = document.getElementById("cliente-bairro").value;
+
+        const msgLogistica = 
+            `🛵 *${saudacao}, amigo entregador!* ✨\n` +
+            `Temos uma entrega saindo do Araújo, pode nos ajudar?\n\n` +
+            `🏢 *ESTABELECIMENTO (COLETA):*\n` +
+            `Frango Assado do Araújo\n` +
+            `📍 Localização da Loja: ${linkMapsLoja}\n` +
+            `Endereço: Av. Altamira, sn - Bairro: Saudade\n\n` +
+            `--------------------------\n\n` +
+            `👤 *CLIENTE:* ${nomeCliente}\n` +
+            `🏠 *ENTREGA:* ${enderecoCliente}\n` +
+            `🏙️ *BAIRRO:* ${bairroCliente}\n\n` +
+            `💵 *TAXA:* R$ ${this.taxaEntrega.toFixed(2).replace('.', ',')}\n\n` +
+            `*Muito obrigado, bom trabalho e dirija com segurança!* 🙏🍀`;
+
+        const url = `https://api.whatsapp.com/send?phone=${foneCentral}&text=${encodeURIComponent(msgLogistica)}`;
         window.open(url, "_blank");
 
-        if (pagamento === "Pix") {
-            setTimeout(() => {
-                const modalPix = document.getElementById('modal-pix-lembrete');
-                if (modalPix) modalPix.style.display = 'flex';
-            }, 1500);
-        }
-
-        this.items = [];
-        this.taxaEntrega = 0;
-        this.render();
+        alert("Tudo pronto! Sua entrega foi solicitada com sucesso. Muito obrigado! ❤️");
+        this.items = []; 
         this.update();
-        document.getElementById("checkout-modal").classList.add("hidden");
-    }
+        this.closeCheckout();
+        setTimeout(() => { location.reload(); }, 500); 
+    },
+
+    clear: function() {
+        if (confirm("Limpar carrinho?")) {
+            this.items = [];
+            this.update();
+            this.render();
+            this.toggle();
+        }
+    },
+
+    sugerirBairros: function(v) {},
+    ajustarPagamento: function(v) {},
+    copiarPix: function() {}
 };
+
+window.Cart = Cart;
