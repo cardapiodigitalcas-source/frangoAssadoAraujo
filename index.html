@@ -28,21 +28,29 @@
     <main id="products" class="products">
         </main>
 
-    <button class="cart-float" onclick="Cart.toggle()">
-        🛒 Ver Carrinho  
+    <button class="cart-float hidden" onclick="Cart.toggle()">
+        <span id="cart-count">0</span>
+        <i class="fa fa-shopping-cart"></i> 
+        Ver Carrinho  
         <span id="cart-total-float">R$ 0,00</span>
     </button>
 
     <div id="cart-modal" class="cart-modal hidden">
-        <div class="cart-content"> <h2>Seu Pedido</h2>
+        <div class="cart-content"> 
+            <h2>Seu Pedido</h2>
             <button onclick="Cart.clear()" class="btn-clear-cart" 
                 style="width: 100%; margin-bottom: 15px; padding: 10px; background: #fff1f1; color: #d9534f; border: 1px solid #d9534f; border-radius: 8px; cursor: pointer; font-weight: bold;">
                 🗑️ Limpar Carrinho
             </button>
+            
             <div id="cart-items"></div>
+
+            <div id="min-order-info"></div>
+
             <div class="cart-total" style="padding: 15px 0; font-size: 1.2rem; border-top: 1px solid #eee; margin-top: 10px; color: #333;">
                 Total: <span id="cart-total"><strong>R$ 0,00</strong></span>
             </div>
+            
             <button id="btn-finalizar-cart" onclick="Cart.checkout()" class="btn-primary">
                 Finalizar Pedido
             </button>
@@ -53,7 +61,8 @@
     </div>
 
     <div id="checkout-modal" class="checkout-modal hidden">
-        <div class="checkout-content"> <h2 id="saudacao-usuario">Finalizar Pedido</h2>
+        <div class="checkout-content"> 
+            <h2 id="saudacao-usuario">Finalizar Pedido</h2>
             
             <div class="form-group">
                 <label>Seu Nome</label>
@@ -106,10 +115,14 @@
             </div>
 
             <button id="btn-enviar-whatsapp" onclick="Cart.enviarPedido()" class="btn-primary">
-                🚀 Enviar Pedido para o WhatsApp
+                🚀 1. Enviar Pedido (WhatsApp)
             </button>
             
-            <button type="button" onclick="Cart.closeCheckout()" class="btn-secondary" style="margin-top: 10px;">
+            <button id="btn-solicitar-motoboy" onclick="Cart.solicitarMotoboy()" class="btn-entregador" disabled style="opacity: 0.5; margin-top: 10px; background: #ccc;">
+                🛵 2. Avisar Entregador
+            </button>
+
+            <button type="button" onclick="Cart.closeCheckout()" class="btn-secondary" style="margin-top: 15px;">
                 Voltar
             </button>
         </div>
@@ -124,7 +137,7 @@
             <p style="color:#666; line-height:1.5; margin-bottom:25px;">
                 Agora, por favor, <strong>tire um print do seu comprovante Pix</strong> e envie aqui na conversa do WhatsApp para validarmos sua entrega.
             </p>
-            <button onclick="fecharModalPix()" style="background:#25d366; color:#fff; border:none; width:100%; padding:15px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:16px;">
+            <button onclick="fecharModalPix()" style="background:#0aca51; color:#fff; border:none; width:100%; padding:15px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:16px;">
                 OK, VOU ENVIAR!
             </button>
         </div>
@@ -134,12 +147,5 @@
     <script src="js/cart.js"></script>
     <script src="js/main.js"></script>
 
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("./sw.js");
-            });
-        }
-    </script>
 </body>
 </html>
