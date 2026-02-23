@@ -244,7 +244,7 @@ const Cart = {
 
     solicitarMotoboy: function() {
         const config = window.storeConfig || {};
-        const foneCentral = "5591992875156"; 
+        const foneCentral = "5591980481900"; 
         const nome = document.getElementById("cliente-nome").value;
         const enderecoCliente = document.getElementById("cliente-endereco").value;
         const bairroCliente = document.getElementById("cliente-bairro").value;
@@ -336,3 +336,4 @@ Muito obrigado, bom trabalho e dirija com segurança! 🙏🍀 bY, Cardapio digi
 };
 
 window.Cart = Cart;
+
